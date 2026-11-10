@@ -16,6 +16,7 @@ def db():
     CREATE TABLE IF NOT EXISTS libraries(name TEXT PRIMARY KEY,created REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS items(id TEXT PRIMARY KEY,payload TEXT NOT NULL,library TEXT DEFAULT '',favorite INTEGER DEFAULT 0,updated REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS progress(id TEXT PRIMARY KEY,position REAL NOT NULL,duration REAL NOT NULL,updated REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_state(key TEXT PRIMARY KEY,value TEXT NOT NULL,updated REAL NOT NULL);
     ''');return con
 def init_db():
     with db() as con:con.execute('DELETE FROM cache WHERE created<?',(time.time()-86400*30,))
@@ -50,7 +51,7 @@ def fetch_json(url,headers=None,retries=3):
     last=None
     for attempt in range(retries):
         try:
-            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/1.4',**(headers or {})})
+            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/1.5',**(headers or {})})
             with urlopen(req,timeout=15) as res:return json.loads(res.read().decode())
         except (HTTPError,URLError,TimeoutError) as e:
             last=e
@@ -141,7 +142,8 @@ def saved_state():
         for r in con.execute('SELECT payload,library,favorite FROM items ORDER BY updated DESC'):
             x=json.loads(r['payload']);x['library']=r['library'];x['favorite']=bool(r['favorite']);items.append(x)
         progress={r['id']:{'position':r['position'],'duration':r['duration'],'updated':r['updated']} for r in con.execute('SELECT * FROM progress')}
-    return {'libraries':libs,'items':items,'progress':progress}
+        extra={r['key']:json.loads(r['value']) for r in con.execute('SELECT key,value FROM app_state')}
+    return {'libraries':libs,'items':items,'progress':progress,'queue':extra.get('queue',[]),'history':extra.get('history',[]),'preferences':extra.get('preferences',{})}
 def save_state(payload):
     libs=payload.get('libraries',[]);items=payload.get('items',[])
     with db() as con:
@@ -150,10 +152,12 @@ def save_state(payload):
         for x in items:
             ident=x.get('id')
             if ident and x.get('source')!='Local file':con.execute('INSERT OR REPLACE INTO items VALUES(?,?,?,?,?)',(ident,json.dumps(x),x.get('library',''),int(bool(x.get('favorite'))),time.time()))
+        for key in ('queue','history','preferences'):
+            if key in payload:con.execute('INSERT OR REPLACE INTO app_state VALUES(?,?,?)',(key,json.dumps(payload[key]),time.time()))
 def provider_status():
     configured={'youtube':bool(secret('YOUTUBE_API_KEY')),'vimeo':bool(secret('VIMEO_ACCESS_TOKEN')),'dailymotion':bool(secret('DAILYMOTION_ACCESS_TOKEN')),'peertube':True}
     with db() as con:entries=con.execute('SELECT COUNT(*) FROM cache').fetchone()[0]
-    return {'version':'1.4.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
+    return {'version':'1.5.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self,path):
         rel=urlparse(path).path.lstrip('/') or 'index.html';candidate=(ROOT/rel).resolve();return str(candidate if str(candidate).startswith(str(ROOT)) else ROOT/'index.html')
@@ -189,6 +193,6 @@ class Handler(SimpleHTTPRequestHandler):
         return self.send_json({'error':'Not found'},404)
     def log_message(self,fmt,*args):print('[OpenMedia]',fmt%args)
 if __name__=='__main__':
-    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v1.4.0 running at http://{HOST}:{PORT}')
+    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v1.5.0 running at http://{HOST}:{PORT}')
     try:ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
     except KeyboardInterrupt:pass

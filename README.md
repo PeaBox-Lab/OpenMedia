@@ -1,6 +1,6 @@
-# OpenMedia Lite v1.4.0 — Browser Hub
+# OpenMedia Lite v1.5.0 — Persistent Queue
 
-A modern, API-optional media hub for local files, provider browsing, pasted-link playback, persistent libraries, queues, and Continue Watching.
+A cumulative API-optional browser and media hub with persistent libraries, playback progress, history, and a user-managed queue.
 
 ## Run
 
@@ -10,37 +10,32 @@ A modern, API-optional media hub for local files, provider browsing, pasted-link
 
 Python 3 is the only runtime dependency. The server binds only to `127.0.0.1`.
 
-## Do I need APIs?
+## Added in 1.5
 
-No API is required for local media, direct media URLs, pasted supported provider links, Browser Hub search shortcuts, libraries, favorites, queues, and Continue Watching.
+- Persistent user-managed play queue for saved web media
+- Persistent playback history with a dedicated History view
+- Queue all and shuffle-all actions
+- Remove individual queue entries without deleting library items
+- Previous and next navigation
+- Repeat off, repeat all, and repeat one
+- Shuffle playback mode
+- Native audio/video playback speeds from 0.75× to 2×
+- Native audio/video mute control
+- Compact floating mini-player mode
+- Queue count and currently-playing highlight
+- Automatic queue progression now respects repeat and shuffle modes
 
-APIs remain optional for combined structured results inside OpenMedia, result metadata and thumbnails, filters, channels, and playlist expansion.
+## Retained
 
-## Browsing model
+- API-optional Browser Hub and provider shortcuts
+- Supported pasted-link playback for YouTube, Vimeo, Dailymotion, SoundCloud, PeerTube, and direct media URLs
+- Optional structured API discovery
+- SQLite libraries, favorites, Continue Watching, and playback progress
+- JSON import/export, local media, responsive themes, keyboard controls, and PWA caching
 
-Browser Hub attempts to display provider pages in its built-in panel. The attached v1.3 project already notes that providers can block embedding or require the original provider page. When a page does not appear, choose **Open externally**, navigate to a video, copy its URL, and paste it into OpenMedia for supported playback.
+## Notes
 
-The release therefore uses a hybrid workflow: in-app browsing when permitted, external fallback when blocked, and dedicated embedded players for supported media links.
-
-## Added in 1.4
-
-- API-optional Browser Hub as the default experience
-- Unified provider search and address bar
-- Provider launch cards for YouTube, Vimeo, Dailymotion, PeerTube, and SoundCloud
-- Built-in browsing panel with address display, home, back, and external fallback
-- Automatic conversion of supported pasted links into in-app players
-- Optional API Discovery retained in a separate tab
-- Updated responsive visual system
-- No forced first-run API setup
-
-## Retained from 1.3
-
-- SQLite-backed persistent web libraries and favorites
-- Playback progress and Continue Watching
-- Automatic native-media queue progression
-- Persistent API cache and retry handling
-- Protected optional credential storage
-- Local media, JSON import/export, themes, keyboard controls, and PWA caching
+The persistent queue stores saved web-item identifiers. Local files cannot survive a browser restart and therefore are not restored into a later session's queue. Third-party websites may still block the Browser Hub frame; use the external fallback and paste a supported final media URL into OpenMedia.
 
 ## Tests
 
