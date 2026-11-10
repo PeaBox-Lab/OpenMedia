@@ -1,4 +1,3 @@
 #!/bin/sh
-python3 -m http.server 8080 &
-echo "Open http://localhost:8080"
-wait
+( sleep 1; command -v open >/dev/null && open http://127.0.0.1:8080 || command -v xdg-open >/dev/null && xdg-open http://127.0.0.1:8080 ) &
+python3 server.py
