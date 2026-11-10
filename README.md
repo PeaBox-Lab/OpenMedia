@@ -1,40 +1,38 @@
-# OpenMedia Lite v1.6.0 — Smart Library
+# OpenMedia Lite v1.7.0 — Library Maintenance
 
-A cumulative API-optional Browser Hub with persistent queue, playback history, smart collections, command search, full backup/restore, and diagnostics.
+A cumulative API-optional Browser Hub with smart collections, persistent queues, full backup/restore, batch library actions, and safe maintenance controls.
 
-## Added in 1.6
+## Added in 1.7
 
-- Automatic smart collections grouped by provider
-- Recently Played view covering the last seven days of recorded playback
-- Global command palette opened with `Ctrl+K` or `Command+K`
-- Command search across media and common application actions
-- Keyboard navigation through palette results
-- Full JSON backup including libraries, saved media, progress, queue, history, and preferences
-- Controlled backup restore with confirmation
-- Local diagnostics dashboard for version, uptime, database size, table counts, vault status, and server binding
-- Copyable diagnostics summary for support
+- Multi-select mode for media cards
+- Select-all within the active filtered view
+- Batch favorite, queue, library assignment, and deletion
+- Durable saved-item and library deletion in SQLite
+- Duplicate URL analysis and merging
+- Incomplete saved-item detection and removal
+- Clear playback history, Continue Watching progress, or API cache independently
+- Persistent appearance preference: dark, light, or system
+- Comfortable and compact library density
+- Configurable automatic queue advancement
+- Configurable deletion confirmations
+- Maintenance statistics for items, duplicates, incomplete records, and history
+
+## Safety and persistence
+
+Batch deletion, duplicate merging, incomplete-item cleanup, history clearing, progress clearing, and cache clearing require explicit confirmation where appropriate. The server now treats saved-item lists as authoritative during state synchronization, so deleted web items no longer return after restart.
 
 ## Retained
 
-- API-optional provider Browser Hub
-- Supported pasted-link playback and external fallback
-- Persistent queue, history, repeat, shuffle, speed, mute, and mini-player controls
-- SQLite libraries, favorites, Continue Watching, and playback progress
-- Optional structured provider discovery and protected credentials
-- Local media, JSON library portability, responsive themes, and PWA caching
+- Browser Hub with API-free provider shortcuts and supported-link playback
+- Optional structured API discovery
+- Smart provider collections and global command palette
+- Persistent queue, history, Continue Watching, repeat, shuffle, speed, mute, and mini-player controls
+- Full backup/restore and diagnostics
+- SQLite libraries and protected optional credentials
+- Local media, responsive themes, and PWA caching
 
-## Run
+## Run and test
 
-- Windows: run `run_windows.bat`
-- macOS/Linux: run `sh run_mac_linux.sh`
-- Open `http://127.0.0.1:8080`
+Run `run_windows.bat` or `sh run_mac_linux.sh`, then open `http://127.0.0.1:8080`.
 
-Python 3 is the only runtime dependency. The app binds only to `127.0.0.1`.
-
-## Backup behavior
-
-A full backup includes restorable web-media state and application preferences. Local file bytes are not included because browser-selected files are session-only. Restoring a full backup replaces saved libraries, web items, progress, queue, history, and preferences; it does not change provider credentials.
-
-## Tests
-
-Run `python -m unittest discover -s tests`.
+Run tests with `python -m unittest discover -s tests`.

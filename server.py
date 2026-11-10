@@ -51,7 +51,7 @@ def fetch_json(url,headers=None,retries=3):
     last=None
     for attempt in range(retries):
         try:
-            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/1.6',**(headers or {})})
+            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/1.7',**(headers or {})})
             with urlopen(req,timeout=15) as res:return json.loads(res.read().decode())
         except (HTTPError,URLError,TimeoutError) as e:
             last=e
@@ -147,6 +147,14 @@ def saved_state():
 def save_state(payload):
     libs=payload.get('libraries',[]);items=payload.get('items',[])
     with db() as con:
+        if payload.get('replaceItems'):
+            keep=[x.get('id') for x in items if x.get('id')]
+            if keep:con.execute('DELETE FROM items WHERE id NOT IN ('+','.join('?'*len(keep))+')',keep)
+            else:con.execute('DELETE FROM items')
+        if payload.get('replaceLibraries'):
+            keep_libs=[x.strip() for x in libs if isinstance(x,str) and x.strip()]
+            if keep_libs:con.execute('DELETE FROM libraries WHERE name NOT IN ('+','.join('?'*len(keep_libs))+')',keep_libs)
+            else:con.execute('DELETE FROM libraries')
         for name in libs:
             if isinstance(name,str) and name.strip():con.execute('INSERT OR IGNORE INTO libraries VALUES(?,?)',(name.strip(),time.time()))
         for x in items:
@@ -157,7 +165,7 @@ def save_state(payload):
 def diagnostics():
     with db() as con:
         counts={name:con.execute(f'SELECT COUNT(*) FROM {name}').fetchone()[0] for name in ('libraries','items','progress','cache','app_state')}
-    return {'version':'1.6.0','uptimeSeconds':round(time.time()-STARTED,1),'databaseBytes':DB.stat().st_size if DB.exists() else 0,'tables':counts,'vaultConfigured':VAULT.exists(),'host':HOST,'port':PORT}
+    return {'version':'1.7.0','uptimeSeconds':round(time.time()-STARTED,1),'databaseBytes':DB.stat().st_size if DB.exists() else 0,'tables':counts,'vaultConfigured':VAULT.exists(),'host':HOST,'port':PORT}
 def restore_state(payload):
     state=payload.get('state',payload)
     with db() as con:
@@ -171,7 +179,7 @@ def restore_state(payload):
 def provider_status():
     configured={'youtube':bool(secret('YOUTUBE_API_KEY')),'vimeo':bool(secret('VIMEO_ACCESS_TOKEN')),'dailymotion':bool(secret('DAILYMOTION_ACCESS_TOKEN')),'peertube':True}
     with db() as con:entries=con.execute('SELECT COUNT(*) FROM cache').fetchone()[0]
-    return {'version':'1.6.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
+    return {'version':'1.7.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self,path):
         rel=urlparse(path).path.lstrip('/') or 'index.html';candidate=(ROOT/rel).resolve();return str(candidate if str(candidate).startswith(str(ROOT)) else ROOT/'index.html')
@@ -185,7 +193,7 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path=='/api/health':return self.send_json(provider_status())
         if u.path=='/api/state':return self.send_json(saved_state())
         if u.path=='/api/diagnostics':return self.send_json(diagnostics())
-        if u.path=='/api/backup':return self.send_json({'app':'OpenMedia Lite','version':'1.6.0','exportedAt':datetime.now(timezone.utc).isoformat(),'state':saved_state()})
+        if u.path=='/api/backup':return self.send_json({'app':'OpenMedia Lite','version':'1.7.0','exportedAt':datetime.now(timezone.utc).isoformat(),'state':saved_state()})
         if u.path=='/api/search':
             try:
                 data,hit=cached('search:'+u.query,lambda:search(p));return self.send_json({**data,'cacheHit':hit})
@@ -204,6 +212,14 @@ class Handler(SimpleHTTPRequestHandler):
             if not data.get('id'):return self.send_json({'error':'Media id is required'},400)
             with db() as con:con.execute('INSERT OR REPLACE INTO progress VALUES(?,?,?,?)',(data['id'],float(data.get('position',0)),float(data.get('duration',0)),time.time()))
             return self.send_json({'saved':True})
+        if u.path=='/api/maintenance':
+            action=data.get('action')
+            with db() as con:
+                if action=='clear-history':con.execute("DELETE FROM app_state WHERE key='history'")
+                elif action=='clear-progress':con.execute('DELETE FROM progress')
+                elif action=='clear-cache':con.execute('DELETE FROM cache')
+                else:return self.send_json({'error':'Unsupported maintenance action'},400)
+            return self.send_json({'completed':action,'diagnostics':diagnostics()})
         if u.path=='/api/restore':
             try:return self.send_json({'restored':True,'state':restore_state(data)})
             except Exception:return self.send_json({'error':'Backup restore failed'},400)
@@ -212,6 +228,6 @@ class Handler(SimpleHTTPRequestHandler):
         return self.send_json({'error':'Not found'},404)
     def log_message(self,fmt,*args):print('[OpenMedia]',fmt%args)
 if __name__=='__main__':
-    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v1.6.0 running at http://{HOST}:{PORT}')
+    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v1.7.0 running at http://{HOST}:{PORT}')
     try:ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
     except KeyboardInterrupt:pass
