@@ -1,6 +1,27 @@
-# OpenMedia Lite v1.5.0 — Persistent Queue
+# OpenMedia Lite v1.6.0 — Smart Library
 
-A cumulative API-optional browser and media hub with persistent libraries, playback progress, history, and a user-managed queue.
+A cumulative API-optional Browser Hub with persistent queue, playback history, smart collections, command search, full backup/restore, and diagnostics.
+
+## Added in 1.6
+
+- Automatic smart collections grouped by provider
+- Recently Played view covering the last seven days of recorded playback
+- Global command palette opened with `Ctrl+K` or `Command+K`
+- Command search across media and common application actions
+- Keyboard navigation through palette results
+- Full JSON backup including libraries, saved media, progress, queue, history, and preferences
+- Controlled backup restore with confirmation
+- Local diagnostics dashboard for version, uptime, database size, table counts, vault status, and server binding
+- Copyable diagnostics summary for support
+
+## Retained
+
+- API-optional provider Browser Hub
+- Supported pasted-link playback and external fallback
+- Persistent queue, history, repeat, shuffle, speed, mute, and mini-player controls
+- SQLite libraries, favorites, Continue Watching, and playback progress
+- Optional structured provider discovery and protected credentials
+- Local media, JSON library portability, responsive themes, and PWA caching
 
 ## Run
 
@@ -8,34 +29,11 @@ A cumulative API-optional browser and media hub with persistent libraries, playb
 - macOS/Linux: run `sh run_mac_linux.sh`
 - Open `http://127.0.0.1:8080`
 
-Python 3 is the only runtime dependency. The server binds only to `127.0.0.1`.
+Python 3 is the only runtime dependency. The app binds only to `127.0.0.1`.
 
-## Added in 1.5
+## Backup behavior
 
-- Persistent user-managed play queue for saved web media
-- Persistent playback history with a dedicated History view
-- Queue all and shuffle-all actions
-- Remove individual queue entries without deleting library items
-- Previous and next navigation
-- Repeat off, repeat all, and repeat one
-- Shuffle playback mode
-- Native audio/video playback speeds from 0.75× to 2×
-- Native audio/video mute control
-- Compact floating mini-player mode
-- Queue count and currently-playing highlight
-- Automatic queue progression now respects repeat and shuffle modes
-
-## Retained
-
-- API-optional Browser Hub and provider shortcuts
-- Supported pasted-link playback for YouTube, Vimeo, Dailymotion, SoundCloud, PeerTube, and direct media URLs
-- Optional structured API discovery
-- SQLite libraries, favorites, Continue Watching, and playback progress
-- JSON import/export, local media, responsive themes, keyboard controls, and PWA caching
-
-## Notes
-
-The persistent queue stores saved web-item identifiers. Local files cannot survive a browser restart and therefore are not restored into a later session's queue. Third-party websites may still block the Browser Hub frame; use the external fallback and paste a supported final media URL into OpenMedia.
+A full backup includes restorable web-media state and application preferences. Local file bytes are not included because browser-selected files are session-only. Restoring a full backup replaces saved libraries, web items, progress, queue, history, and preferences; it does not change provider credentials.
 
 ## Tests
 
