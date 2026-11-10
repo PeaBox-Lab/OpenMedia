@@ -6,10 +6,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
-
 ROOT=Path(__file__).resolve().parent; DATA=ROOT/'data'; DATA.mkdir(exist_ok=True)
 HOST='127.0.0.1'; PORT=int(os.getenv('OPENMEDIA_PORT','8080')); DB=DATA/'openmedia.db'; VAULT=DATA/'provider-secrets.json'; KEY=DATA/'.vault-key'; TTL=600
-
 def db():
     con=sqlite3.connect(DB,timeout=10);con.row_factory=sqlite3.Row
     con.executescript('''
@@ -19,10 +17,8 @@ def db():
     CREATE TABLE IF NOT EXISTS items(id TEXT PRIMARY KEY,payload TEXT NOT NULL,library TEXT DEFAULT '',favorite INTEGER DEFAULT 0,updated REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS progress(id TEXT PRIMARY KEY,position REAL NOT NULL,duration REAL NOT NULL,updated REAL NOT NULL);
     ''');return con
-
 def init_db():
     with db() as con:con.execute('DELETE FROM cache WHERE created<?',(time.time()-86400*30,))
-
 def vault_key():
     if not KEY.exists():
         KEY.write_bytes(secrets.token_bytes(32))
@@ -50,19 +46,17 @@ def write_secrets(values):
     except OSError:pass
     return current
 def secret(env):return os.getenv(env,'') or read_secrets().get(env,'')
-
 def fetch_json(url,headers=None,retries=3):
     last=None
     for attempt in range(retries):
         try:
-            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/1.3',**(headers or {})})
+            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/1.4',**(headers or {})})
             with urlopen(req,timeout=15) as res:return json.loads(res.read().decode())
         except (HTTPError,URLError,TimeoutError) as e:
             last=e
             if isinstance(e,HTTPError) and e.code<500 and e.code!=429:break
             time.sleep(.35*(2**attempt))
     raise last
-
 def cached(key,fn):
     with db() as con:
         row=con.execute('SELECT payload,created FROM cache WHERE key=?',(key,)).fetchone()
@@ -70,12 +64,10 @@ def cached(key,fn):
     value=fn()
     with db() as con:con.execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(value),time.time()))
     return value,False
-
 def result(provider,ident,title,kind,thumb,url,embed='',duration=None,published=None,description=''):
     return {'id':f'{provider}:{kind}:{ident}','provider':provider,'type':kind,'title':title or 'Untitled','thumbnail':thumb or '','sourceUrl':url or '','embedUrl':embed or '','duration':duration,'publishedAt':published,'description':description or ''}
 def published_after(key):
     days={'today':1,'week':7,'month':30,'year':365}.get(key);return (datetime.now(timezone.utc)-timedelta(days=days)).isoformat().replace('+00:00','Z') if days else None
-
 def youtube_search(q,kind,limit,duration,published,order):
     key=secret('YOUTUBE_API_KEY')
     if not key:return [],['YouTube needs setup']
@@ -125,7 +117,6 @@ def peertube(q,limit,order):
 def duration_ok(seconds,key):
     if key=='any' or seconds is None:return True
     return seconds<240 if key=='short' else 240<=seconds<=1200 if key=='medium' else seconds>1200
-
 def search(params):
     q=params.get('q',[''])[0].strip();provider=params.get('provider',['all'])[0];kind=params.get('type',['video'])[0];duration=params.get('duration',['any'])[0];published=params.get('published',['any'])[0];order=params.get('order',['relevance'])[0]
     if not q:raise ValueError('Search query is required')
@@ -143,7 +134,6 @@ def search(params):
     if order=='title':out.sort(key=lambda x:(x.get('title') or '').lower())
     elif order=='date':out.sort(key=lambda x:x.get('publishedAt') or '',reverse=True)
     return {'query':q,'results':out,'warnings':warnings}
-
 def saved_state():
     with db() as con:
         libs=[r['name'] for r in con.execute('SELECT name FROM libraries ORDER BY created')]
@@ -163,8 +153,7 @@ def save_state(payload):
 def provider_status():
     configured={'youtube':bool(secret('YOUTUBE_API_KEY')),'vimeo':bool(secret('VIMEO_ACCESS_TOKEN')),'dailymotion':bool(secret('DAILYMOTION_ACCESS_TOKEN')),'peertube':True}
     with db() as con:entries=con.execute('SELECT COUNT(*) FROM cache').fetchone()[0]
-    return {'version':'1.3.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
-
+    return {'version':'1.4.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self,path):
         rel=urlparse(path).path.lstrip('/') or 'index.html';candidate=(ROOT/rel).resolve();return str(candidate if str(candidate).startswith(str(ROOT)) else ROOT/'index.html')
@@ -200,6 +189,6 @@ class Handler(SimpleHTTPRequestHandler):
         return self.send_json({'error':'Not found'},404)
     def log_message(self,fmt,*args):print('[OpenMedia]',fmt%args)
 if __name__=='__main__':
-    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v1.3.0 running at http://{HOST}:{PORT}')
+    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v1.4.0 running at http://{HOST}:{PORT}')
     try:ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
     except KeyboardInterrupt:pass
