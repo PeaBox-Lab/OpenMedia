@@ -1,36 +1,40 @@
-# OpenMedia Lite v1.8.0 — Personal Media Workspace
+# OpenMedia Lite v1.9.0 — Playlists & Accessibility
 
-A cumulative API-optional Browser Hub with persistent queue, smart collections, library maintenance, Watch Later, manual subscriptions, personal ratings and notes, and local usage insights.
+A cumulative local-first, API-optional Browser Hub with custom playlists, tags, watch reminders, link sharing, and expanded accessibility preferences.
 
-## Added in 1.8
+## Added in 1.9
 
-- Persistent Watch Later status and dedicated view
-- Persistent one-to-five-star ratings and Rated view
-- Personal notes for saved media items
-- Manual subscriptions for creator, channel, profile, or provider pages
-- Subscription shortcuts open through Browser Hub and require no API
-- Remove subscriptions independently from saved media
-- Local usage-insights dashboard
-- Total and seven-day play counts
-- Watch Later, subscription, rating, and progress summaries
-- Average personal rating
-- Most-played provider ranking based on saved playback history
-- Command-palette shortcuts for Watch Later, Rated media, and Insights
+- Persistent custom playlists
+- Batch-add selected media to a playlist
+- Playlist playback through the persistent queue
+- Remove individual playlist entries without deleting media
+- Persistent item tags shown on library cards
+- Tags included in library export and import
+- Local watch reminders with optional browser notifications while the app is running
+- Reminder list and independent reminder removal
+- Device share-sheet support where available
+- Clipboard link-copy fallback
+- Reduced-motion preference
+- High-contrast interface preference
+- Larger-text preference
+- Accessibility preferences persist in backups and across restarts
 
-## Privacy and data behavior
+## Reminder behavior
 
-Subscriptions, ratings, notes, Watch Later state, and insights remain local in the existing SQLite-backed application state. Insights are calculated from OpenMedia history and progress records; no activity is sent to a remote analytics service.
+Reminders are stored locally and checked while OpenMedia is running. Browser notifications are shown only if notification permission was already granted; otherwise an in-app message appears. This release does not install an operating-system background scheduler, so reminders do not fire while the app is closed.
 
-Manual subscriptions are bookmarks, not background feed synchronization. They open the saved provider page through Browser Hub or its external fallback. Structured channel or playlist retrieval still requires an optional provider API where supported.
+## Sharing behavior
+
+Sharing includes only the currently playing item's original source link and title. It does not upload personal notes, ratings, history, playlists, or library data.
 
 ## Retained
 
-- Browser Hub and pasted-link playback
-- Optional API discovery
-- Persistent queue, history, Continue Watching, playback controls, and mini-player
-- Smart collections, command palette, full backup/restore, diagnostics
-- Batch actions, durable deletion, duplicate cleanup, and preferences
-- Local media, responsive themes, and PWA caching
+- Browser Hub, pasted-link playback, and optional API discovery
+- Watch Later, subscriptions, ratings, notes, and local insights
+- Persistent queue, history, Continue Watching, and player controls
+- Smart collections, command palette, backup/restore, diagnostics
+- Batch operations, durable deletion, cleanup, and preferences
+- Local media and PWA caching
 
 ## Run and test
 
