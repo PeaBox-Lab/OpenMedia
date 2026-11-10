@@ -1,40 +1,37 @@
-# OpenMedia Lite v1.9.0 — Playlists & Accessibility
+# OpenMedia Lite v2.0.0 — Recovery & Bookmarks
 
-A cumulative local-first, API-optional Browser Hub with custom playlists, tags, watch reminders, link sharing, and expanded accessibility preferences.
+The 2.0 milestone of the local-first, API-optional Browser Hub adds timestamp bookmarks, last-session recovery, focus/listening modes, and safer import previews while preserving the complete 1.x feature set.
 
-## Added in 1.9
+## Added in 2.0
 
-- Persistent custom playlists
-- Batch-add selected media to a playlist
-- Playlist playback through the persistent queue
-- Remove individual playlist entries without deleting media
-- Persistent item tags shown on library cards
-- Tags included in library export and import
-- Local watch reminders with optional browser notifications while the app is running
-- Reminder list and independent reminder removal
-- Device share-sheet support where available
-- Clipboard link-copy fallback
-- Reduced-motion preference
-- High-contrast interface preference
-- Larger-text preference
-- Accessibility preferences persist in backups and across restarts
+- Timestamp bookmarks for native video and audio
+- Bookmark labels, optional notes, and precise seek-back actions
+- Central bookmarks list with independent deletion
+- Persistent last-session item and playback position
+- Resume card shown in the empty player state
+- Focus mode that reduces the interface to the player
+- Listening mode that hides video imagery while keeping audio controls
+- Import preview before any library data is merged
+- Preview counts for media, duplicates, libraries, playlists, subscriptions, and reminders
+- Explicit import confirmation
+- Bookmark portability through library export/import and full backup
 
-## Reminder behavior
+## Session behavior
 
-Reminders are stored locally and checked while OpenMedia is running. Browser notifications are shown only if notification permission was already granted; otherwise an in-app message appears. This release does not install an operating-system background scheduler, so reminders do not fire while the app is closed.
+Focus and listening modes are temporary viewing modes and are intentionally not persisted. Last-session recovery is persisted for saved web media and native-media progress records. Local files cannot be reopened after a browser restart unless the user selects them again.
 
-## Sharing behavior
+## Import safety
 
-Sharing includes only the currently playing item's original source link and title. It does not upload personal notes, ratings, history, playlists, or library data.
+Library import no longer changes data immediately after file selection. OpenMedia parses the file, shows a summary, reports duplicate IDs that will be skipped, and waits for explicit merge confirmation. Full backup restore remains a separate replacement workflow with its own confirmation.
 
 ## Retained
 
-- Browser Hub, pasted-link playback, and optional API discovery
-- Watch Later, subscriptions, ratings, notes, and local insights
-- Persistent queue, history, Continue Watching, and player controls
-- Smart collections, command palette, backup/restore, diagnostics
-- Batch operations, durable deletion, cleanup, and preferences
-- Local media and PWA caching
+- Browser Hub and optional structured API discovery
+- Playlists, tags, reminders, sharing, and accessibility controls
+- Watch Later, subscriptions, ratings, notes, and insights
+- Persistent queue, history, Continue Watching, and advanced playback controls
+- Smart collections, command palette, maintenance, diagnostics, preferences, and backups
+- Local media, responsive layouts, and PWA caching
 
 ## Run and test
 
