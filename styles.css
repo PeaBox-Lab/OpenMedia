@@ -82,3 +82,16 @@ dialog{border-radius:18px;border-color:#2b3a5e;background:linear-gradient(180deg
 .reco-card small em{font-style:normal;color:#9db1ff;background:#1a2440;border:1px solid #2b3a5e;padding:1px 6px;border-radius:5px;margin-right:4px}
 @media(max-width:720px){.reco{padding:14px 12px 0}.reco-head{align-items:start;flex-direction:column}}
 
+
+/* === UX polish layer === */
+.picker-dialog{width:min(480px,92vw)}
+.picker-list{display:grid;gap:7px;max-height:360px;overflow:auto;margin:14px 0}
+.picker-list button{width:100%;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);transition:border-color .15s,transform .15s}
+.picker-list button:hover{border-color:var(--accent);transform:translateX(4px)}
+.welcome-hint{margin:16px auto 0;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 16px;max-width:520px}
+.welcome-hint b{color:var(--accent2)}
+.welcome-hint ol{margin:8px 0;padding-left:20px;color:var(--muted);display:grid;gap:5px}
+.welcome-hint ol b{color:var(--text)}
+.welcome-hint button{width:100%;text-align:center;margin-top:6px}
+.welcome-hint kbd{font-size:10px}
+
