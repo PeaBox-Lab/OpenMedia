@@ -1,14 +1,15 @@
-import json, os, subprocess, tempfile, time, unittest
+import json, os, shutil, subprocess, tempfile, time, unittest
 from pathlib import Path
 from urllib.request import Request, urlopen
 ROOT=Path(__file__).resolve().parents[1]
 class OpenMediaSmokeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.port='18093';env={**os.environ,'OPENMEDIA_PORT':cls.port}
+        cls.port='18093';cls.data_dir=tempfile.mkdtemp(prefix='openmedia-test-')
+        env={**os.environ,'OPENMEDIA_PORT':cls.port,'OPENMEDIA_DATA':cls.data_dir}
         cls.proc=subprocess.Popen(['python',str(ROOT/'server.py')],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);time.sleep(.7)
     @classmethod
-    def tearDownClass(cls):cls.proc.terminate();cls.proc.wait(timeout=5)
+    def tearDownClass(cls):cls.proc.terminate();cls.proc.wait(timeout=5);shutil.rmtree(cls.data_dir,ignore_errors=True)
     def get(self,path):return json.load(urlopen(f'http://127.0.0.1:{self.port}'+path,timeout=5))
     def post(self,path,data):
         req=Request(f'http://127.0.0.1:{self.port}'+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json'},method='POST')

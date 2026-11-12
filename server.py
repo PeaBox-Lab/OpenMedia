@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
-ROOT=Path(__file__).resolve().parent; DATA=ROOT/'data'; DATA.mkdir(exist_ok=True); STARTED=time.time()
+ROOT=Path(__file__).resolve().parent; DATA=Path(os.getenv('OPENMEDIA_DATA', ROOT/'data')); DATA.mkdir(exist_ok=True); STARTED=time.time()
 HOST='127.0.0.1'; PORT=int(os.getenv('OPENMEDIA_PORT','8080')); DB=DATA/'openmedia.db'; VAULT=DATA/'provider-secrets.json'; KEY=DATA/'.vault-key'; TTL=600
 VERSION='3.0.0'
 def db():
