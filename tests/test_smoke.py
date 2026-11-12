@@ -14,7 +14,7 @@ class OpenMediaSmokeTests(unittest.TestCase):
         req=Request(f'http://127.0.0.1:{self.port}'+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json'},method='POST')
         return json.load(urlopen(req,timeout=5))
     def test_health(self):
-        data=self.get('/api/health');self.assertEqual(data['version'],'2.0.0');self.assertTrue(data['cache']['persistent'])
+        data=self.get('/api/health');self.assertEqual(data['version'],'3.0.0');self.assertTrue(data['cache']['persistent'])
     def test_state_and_progress(self):
         item={'id':'Smoke:video:1','name':'Smoke item','type':'video','source':'Smoke','sourceUrl':'https://example.invalid','favorite':False,'library':'Tests'}
         self.post('/api/state',{'libraries':['Tests'],'items':[item]});self.post('/api/progress',{'id':item['id'],'position':12,'duration':60})
@@ -24,8 +24,8 @@ class OpenMediaSmokeTests(unittest.TestCase):
         self.post('/api/state',payload);data=self.get('/api/state')
         self.assertEqual(data['queue'],['Smoke:video:1']);self.assertEqual(data['history'][0]['playedAt'],123);self.assertEqual(data['preferences']['repeatMode'],'all')
     def test_backup_diagnostics_and_restore(self):
-        backup=self.get('/api/backup');self.assertEqual(backup['version'],'2.0.0');self.assertIn('state',backup)
-        diagnostics=self.get('/api/diagnostics');self.assertEqual(diagnostics['version'],'2.0.0');self.assertIn('databaseBytes',diagnostics)
+        backup=self.get('/api/backup');self.assertEqual(backup['version'],'3.0.0');self.assertIn('state',backup)
+        diagnostics=self.get('/api/diagnostics');self.assertEqual(diagnostics['version'],'3.0.0');self.assertIn('databaseBytes',diagnostics)
         restored=self.post('/api/restore',{'state':{'libraries':['Restored'],'items':[],'progress':{},'queue':[],'history':[],'preferences':{}}})
         self.assertTrue(restored['restored']);self.assertIn('Restored',restored['state']['libraries'])
     def test_authoritative_deletion_and_maintenance(self):
@@ -49,4 +49,12 @@ class OpenMediaSmokeTests(unittest.TestCase):
         prefs={'bookmarks':[{'id':'b1','itemId':'Recover:video:1','position':33.5,'label':'Key point','note':'Review'}],'lastSession':{'itemId':'Recover:video:1','position':33.5,'playedAt':12345}}
         self.post('/api/state',{'items':[item],'libraries':[],'preferences':prefs,'replaceItems':True,'replaceLibraries':True})
         state=self.get('/api/state');self.assertEqual(state['preferences']['bookmarks'][0]['position'],33.5);self.assertEqual(state['preferences']['lastSession']['itemId'],'Recover:video:1')
+    def test_provider_catalog(self):
+        data=self.get('/api/providers');self.assertEqual(data['version'],'3.0.0')
+        ids=[p['id'] for p in data['providers']]
+        for expected in ('youtube','vimeo','dailymotion','peertube','soundcloud','twitch','tiktok','reddit','bilibili','rumble','odysee','archive','ccc','kick','niconico','piped'):
+            self.assertIn(expected,ids)
+        yt=next(p for p in data['providers'] if p['id']=='youtube')
+        self.assertTrue(yt['keyless']);self.assertIn('apiConsole',yt);self.assertIn('signIn',yt)
+
 if __name__=='__main__':unittest.main()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import base64, hashlib, hmac, json, os, secrets, sqlite3, time
+import base64, hashlib, hmac, json, os, secrets, sqlite3, time, urllib.parse
 from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 ROOT=Path(__file__).resolve().parent; DATA=ROOT/'data'; DATA.mkdir(exist_ok=True); STARTED=time.time()
 HOST='127.0.0.1'; PORT=int(os.getenv('OPENMEDIA_PORT','8080')); DB=DATA/'openmedia.db'; VAULT=DATA/'provider-secrets.json'; KEY=DATA/'.vault-key'; TTL=600
+VERSION='3.0.0'
 def db():
     con=sqlite3.connect(DB,timeout=10);con.row_factory=sqlite3.Row
     con.executescript('''
@@ -51,7 +52,7 @@ def fetch_json(url,headers=None,retries=3):
     last=None
     for attempt in range(retries):
         try:
-            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/2.0',**(headers or {})})
+            req=Request(url,headers={'User-Agent':'OpenMedia-Lite/3.0',**(headers or {})})
             with urlopen(req,timeout=15) as res:return json.loads(res.read().decode())
         except (HTTPError,URLError,TimeoutError) as e:
             last=e
@@ -69,9 +70,61 @@ def result(provider,ident,title,kind,thumb,url,embed='',duration=None,published=
     return {'id':f'{provider}:{kind}:{ident}','provider':provider,'type':kind,'title':title or 'Untitled','thumbnail':thumb or '','sourceUrl':url or '','embedUrl':embed or '','duration':duration,'publishedAt':published,'description':description or ''}
 def published_after(key):
     days={'today':1,'week':7,'month':30,'year':365}.get(key);return (datetime.now(timezone.utc)-timedelta(days=days)).isoformat().replace('+00:00','Z') if days else None
+
+PROVIDER_CATALOG=[
+ {'id':'youtube','name':'YouTube','category':'video','keyless':True,'signIn':'https://accounts.google.com/','apiConsole':'https://console.cloud.google.com/apis/library/youtube.googleapis.com','credentials':'YOUTUBE_API_KEY','credentialHelp':'Create a project → enable YouTube Data API v3 → Credentials → API key','docs':'https://developers.google.com/youtube/v3','search':'keyless via Piped; API key optional upgrade','embed':True,'capabilities':['search','embed','channels','playlists']},
+ {'id':'vimeo','name':'Vimeo','category':'video','keyless':False,'signIn':'https://vimeo.com/log_in','apiConsole':'https://developer.vimeo.com/apps','credentials':'VIMEO_ACCESS_TOKEN','credentialHelp':'Create an app → Personal access token (public scope)','docs':'https://developer.vimeo.com/api/start','search':'API token required','embed':True,'capabilities':['search','embed']},
+ {'id':'dailymotion','name':'Dailymotion','category':'video','keyless':True,'signIn':'https://www.dailymotion.com/login','apiConsole':'https://www.dailymotion.com/settings/api','credentials':'DAILYMOTION_ACCESS_TOKEN','credentialHelp':'Not required for search; optional OAuth token for higher limits','docs':'https://developer.dailymotion.com/','search':'keyless public search','embed':True,'capabilities':['search','embed']},
+ {'id':'peertube','name':'PeerTube','category':'video','keyless':True,'signIn':'https://sepiasearch.org/login','apiConsole':'','credentials':'PEERTUBE_INSTANCE','credentialHelp':'Pick any instance; no account needed for search','docs':'https://joinpeertube.org/','search':'keyless federated search','embed':True,'capabilities':['search','embed']},
+ {'id':'soundcloud','name':'SoundCloud','category':'audio','keyless':True,'signIn':'https://soundcloud.com/signin','apiConsole':'https://soundcloud.com/you/apps','credentials':'','credentialHelp':'Paste track/playlist links; embedded player needs no key','docs':'https://developers.soundcloud.com/','search':'paste links (API key optional, not required)','embed':True,'capabilities':['embed','playlists']},
+ {'id':'twitch','name':'Twitch','category':'live','keyless':True,'signIn':'https://www.twitch.tv/login','apiConsole':'https://dev.twitch.tv/console/apps','credentials':'','credentialHelp':'Optional: register an app for Helix API (client id/secret)','docs':'https://dev.twitch.tv/docs/api/','search':'browse channels in-app; paste clip/video URLs','embed':True,'capabilities':['embed','live']},
+ {'id':'tiktok','name':'TikTok','category':'short','keyless':True,'signIn':'https://www.tiktok.com/login','apiConsole':'https://developers.tiktok.com/','credentials':'','credentialHelp':'Display API requires approval; links play via embed','docs':'https://developers.tiktok.com/doc/','search':'paste video links','embed':True,'capabilities':['embed']},
+ {'id':'reddit','name':'Reddit','category':'short','keyless':True,'signIn':'https://www.reddit.com/login','apiConsole':'https://www.reddit.com/prefs/apps','credentials':'','credentialHelp':'Paste r/… or v.redd.it links; embed via redditplayer','docs':'https://www.reddit.com/r/redditdev/wiki/api','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'bilibili','name':'Bilibili','category':'video','keyless':True,'signIn':'https://passport.bilibili.com/login','apiConsole':'https://openhome.bilibili.com/','credentials':'','credentialHelp':'Paste BV/av links; embedded player needs no key','docs':'https://passport.bilibili.com/login','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'rumble','name':'Rumble','category':'video','keyless':True,'signIn':'https://rumble.com/login','apiConsole':'','credentials':'','credentialHelp':'Paste video links; no public search API','docs':'https://rumble.com/','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'odysee','name':'Odysee','category':'video','keyless':True,'signIn':'https://odysee.com/$/signin','apiConsole':'','credentials':'','credentialHelp':'Paste video links; embedded player needs no key','docs':'https://odysee.com/','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'archive','name':'Internet Archive','category':'video','keyless':True,'signIn':'https://archive.org/account/login','apiConsole':'','credentials':'','credentialHelp':'Fully open; advancedsearch API, no key','docs':'https://archive.org/developers/','search':'keyless advancedsearch.php','embed':True,'capabilities':['search','embed']},
+ {'id':'ccc','name':'media.ccc.de','category':'video','keyless':True,'signIn':'https://media.ccc.de/','apiConsole':'','credentials':'','credentialHelp':'Fully open frab API','docs':'https://media.ccc.de/api/help','search':'keyless frab search','embed':True,'capabilities':['search','embed']},
+ {'id':'kick','name':'Kick','category':'live','keyless':True,'signIn':'https://kick.com/login','apiConsole':'','credentials':'','credentialHelp':'Paste channel/video links; embed player','docs':'https://kick.com/','search':'paste links','embed':True,'capabilities':['embed','live']},
+ {'id':'niconico','name':'Niconico','category':'video','keyless':True,'signIn':'https://account.nicovideo.jp/login','apiConsole':'','credentials':'','credentialHelp':'Paste sm-numbered links; embedded player','docs':'https://www.nicovideo.jp/','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'x','name':'X (Twitter)','category':'short','keyless':True,'signIn':'https://x.com/i/flow/login','apiConsole':'https://developer.x.com/en/portal/dashboard','credentials':'','credentialHelp':'Paste status links; twitframe embed, no key','docs':'https://docs.x.com/','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'instagram','name':'Instagram','category':'short','keyless':True,'signIn':'https://www.instagram.com/accounts/login/','apiConsole':'https://developers.facebook.com/','credentials':'','credentialHelp':'Paste post/reel links; /embed endpoint','docs':'https://developers.facebook.com/docs/instagram-platform','search':'paste links','embed':True,'capabilities':['embed']},
+ {'id':'piped','name':'Piped / Invidious','category':'video','keyless':True,'signIn':'https://piped.video/','apiConsole':'','credentials':'','credentialHelp':'Keyless YouTube frontends; instance list auto-failover','docs':'https://github.com/TeamPiped/Piped','search':'keyless YouTube search (used automatically)','embed':True,'capabilities':['search','embed','channels']},
+]
+PIPED_INSTANCES=[u.rstrip('/') for u in os.getenv('OPENMEDIA_PIPED','https://pipedapi.kavin.rocks https://pipedapi.adminforge.de https://pipedapi.reallyaweso.me').split()]
+def piped_search(q,limit,order):
+    sort={'date':'upload_date','title':'relevance'}.get(order,'relevance');last=None
+    for base in PIPED_INSTANCES:
+        try:
+            data=fetch_json(base+'/search?'+urlencode({'q':q,'filter':'videos','sort_by':sort}),retries=1);out=[]
+            for x in (data if isinstance(data,list) else data.get('items',[]))[:limit]:
+                url=x.get('url') or '';ident=url.rsplit('v=',1)[-1].split('&')[0] if 'v=' in url else (x.get('id') or '')
+                if not ident:continue
+                thumb=(x.get('thumbnail') or '')
+                if isinstance(x.get('thumbnail'),dict):thumb=x['thumbnail'].get('url','')
+                out.append(result('YouTube',ident,x.get('title'),'video',thumb,f'https://www.youtube.com/watch?v={ident}',f'https://www.youtube-nocookie.com/embed/{ident}?autoplay=1',x.get('duration'),x.get('uploadedDate') or x.get('uploaded'),x.get('shortDescription') or ''))
+            return out,[]
+        except Exception as e:last=e
+    raise last or ValueError('No Piped instance reachable')
+
+def piped_playlist(pid,limit=50):
+    last=None
+    for base in PIPED_INSTANCES:
+        try:
+            data=fetch_json(base+'/playlists/'+urllib.parse.quote(pid,safe=''),retries=1);out=[]
+            for x in (data.get('relatedStreams') or data.get('videos') or [])[:limit]:
+                url=x.get('url') or '';ident=url.rsplit('v=',1)[-1].split('&')[0] if 'v=' in url else (x.get('id') or '')
+                if ident:out.append(result('YouTube',ident,x.get('title'),'video',x.get('thumbnail') or '',f'https://www.youtube.com/watch?v={ident}',f'https://www.youtube-nocookie.com/embed/{ident}?autoplay=1',x.get('duration'),None,''))
+            return out,[]
+        except Exception as e:last=e
+    raise last or ValueError('No Piped instance reachable')
+
 def youtube_search(q,kind,limit,duration,published,order):
     key=secret('YOUTUBE_API_KEY')
-    if not key:return [],['YouTube needs setup']
+    if not key:
+        if kind!='video':return [],['YouTube channel/playlist search needs an optional API key']
+        try:return piped_search(q,limit,order)
+        except Exception:return [],['YouTube keyless search unavailable — set a key in API setup for guaranteed results']
     params={'part':'snippet','type':kind,'maxResults':limit,'q':q,'order':order if order in ('date','title') else 'relevance','key':key}
     if kind=='video' and duration!='any':params['videoDuration']=duration
     after=published_after(published)
@@ -86,7 +139,9 @@ def youtube_search(q,kind,limit,duration,published,order):
     return out,[]
 def youtube_playlist(pid,limit=50):
     key=secret('YOUTUBE_API_KEY')
-    if not key:return [],['YouTube needs setup']
+    if not key:
+        try:return piped_playlist(pid,limit)
+        except Exception:return [],['Playlist expansion needs an optional API key (or a reachable Piped instance)']
     data=fetch_json('https://www.googleapis.com/youtube/v3/playlistItems?'+urlencode({'part':'snippet,contentDetails','playlistId':pid,'maxResults':min(limit,50),'key':key}));out=[]
     for x in data.get('items',[]):
         s=x.get('snippet',{});ident=x.get('contentDetails',{}).get('videoId') or s.get('resourceId',{}).get('videoId')
@@ -102,8 +157,8 @@ def vimeo(q,limit,order):
     return out,[]
 def dailymotion(q,limit):
     token=secret('DAILYMOTION_ACCESS_TOKEN')
-    if not token:return [],['Dailymotion needs setup']
-    fields='id,title,description,thumbnail_360_url,url,duration,created_time';data=fetch_json('https://api.dailymotion.com/videos?'+urlencode({'search':q,'limit':limit,'fields':fields}),{'Authorization':f'Bearer {token}'});out=[]
+    fields='id,title,description,thumbnail_360_url,url,duration,created_time';headers={'Authorization':f'Bearer {token}'} if token else None
+    data=fetch_json('https://api.dailymotion.com/videos?'+urlencode({'search':q,'limit':limit,'fields':fields}),headers);out=[]
     for x in data.get('list',[]):
         ident=x.get('id')
         if ident:out.append(result('Dailymotion',ident,x.get('title'),'video',x.get('thumbnail_360_url'),x.get('url') or f'https://www.dailymotion.com/video/{ident}',f'https://www.dailymotion.com/embed/video/{ident}?autoplay=1',x.get('duration'),x.get('created_time'),x.get('description')))
@@ -115,13 +170,29 @@ def peertube(q,limit,order):
         if thumb.startswith('/'):thumb=f'https://{host}{thumb}'
         if ident:out.append(result('PeerTube',str(ident),x.get('name'),'video',thumb,x.get('url') or f'https://{host}/w/{ident}',f'https://{host}/videos/embed/{ident}?autoplay=1',x.get('duration'),x.get('publishedAt'),x.get('description')))
     return out,[]
+def archive(q,limit,order):
+    sort={'date':'-addeddate','title':'titleSorter'}.get(order,'-downloads')
+    data=fetch_json('https://archive.org/advancedsearch.php?'+urlencode({'q':f'mediatype:(movies OR audio) AND ({q})','fl[]':['identifier','title','description','downloads','addeddate','length'],'rows':limit,'output':'json','sort[]':sort},doseq=True));out=[]
+    for x in data.get('response',{}).get('docs',[]):
+        ident=x.get('identifier')
+        if ident:out.append(result('Internet Archive',ident,x.get('title'),'video',f'https://archive.org/services/img/{ident}',f'https://archive.org/details/{ident}',f'https://archive.org/embed/{ident}',None,x.get('addeddate'),x.get('description') if isinstance(x.get('description'),str) else ''))
+    return out,[]
+
+def ccc(q,limit,order):
+    data=fetch_json('https://media.ccc.de/public/events/search?'+urlencode({'q':q,'sort':'date' if order=='date' else 'relevance'}));out=[]
+    for x in (data.get('events') or [])[:limit]:
+        for v in x.get('recordings',[])[:1]:
+            ident=v.get('guid') or str(v.get('id'));thumb=(v.get('poster_url') or x.get('logo_url') or '')
+            out.append(result('media.ccc.de',ident,f"{x.get('title','')} — {v.get('title','')}".strip(' —'),'video',thumb,v.get('frontend_link') or f"https://media.ccc.de/v/{ident}",v.get('frontend_link') or '',v.get('duration'),v.get('published'),v.get('description') or x.get('description') or ''))
+    return out,[]
+
 def duration_ok(seconds,key):
     if key=='any' or seconds is None:return True
     return seconds<240 if key=='short' else 240<=seconds<=1200 if key=='medium' else seconds>1200
 def search(params):
     q=params.get('q',[''])[0].strip();provider=params.get('provider',['all'])[0];kind=params.get('type',['video'])[0];duration=params.get('duration',['any'])[0];published=params.get('published',['any'])[0];order=params.get('order',['relevance'])[0]
     if not q:raise ValueError('Search query is required')
-    names=['youtube','vimeo','dailymotion','peertube'] if provider=='all' else [provider];out=[];warnings=[]
+    names=['youtube','vimeo','dailymotion','peertube','archive','ccc'] if provider=='all' else [provider];out=[];warnings=[]
     for name in names:
         if kind!='video' and name!='youtube':continue
         try:
@@ -129,9 +200,11 @@ def search(params):
             elif name=='vimeo':found,w=vimeo(q,12,order)
             elif name=='dailymotion':found,w=dailymotion(q,12)
             elif name=='peertube':found,w=peertube(q,12,order)
+            elif name=='archive':found,w=archive(q,12,order)
+            elif name=='ccc':found,w=ccc(q,12,order)
             else:continue
             out.extend(x for x in found if kind!='video' or duration_ok(x.get('duration'),duration));warnings+=w
-        except (HTTPError,URLError,TimeoutError,ValueError):warnings.append(f'{name.title()} request failed after retries')
+        except Exception:warnings.append(f'{name} request failed')
     if order=='title':out.sort(key=lambda x:(x.get('title') or '').lower())
     elif order=='date':out.sort(key=lambda x:x.get('publishedAt') or '',reverse=True)
     return {'query':q,'results':out,'warnings':warnings}
@@ -165,7 +238,7 @@ def save_state(payload):
 def diagnostics():
     with db() as con:
         counts={name:con.execute(f'SELECT COUNT(*) FROM {name}').fetchone()[0] for name in ('libraries','items','progress','cache','app_state')}
-    return {'version':'2.0.0','uptimeSeconds':round(time.time()-STARTED,1),'databaseBytes':DB.stat().st_size if DB.exists() else 0,'tables':counts,'vaultConfigured':VAULT.exists(),'host':HOST,'port':PORT}
+    return {'version':VERSION,'uptimeSeconds':round(time.time()-STARTED,1),'databaseBytes':DB.stat().st_size if DB.exists() else 0,'tables':counts,'vaultConfigured':VAULT.exists(),'host':HOST,'port':PORT}
 def restore_state(payload):
     state=payload.get('state',payload)
     with db() as con:
@@ -176,10 +249,18 @@ def restore_state(payload):
             con.execute('INSERT OR REPLACE INTO progress VALUES(?,?,?,?)',(ident,float(value.get('position',0)),float(value.get('duration',0)),float(value.get('updated',time.time()))))
     return saved_state()
 
+def provider_catalog(configured):
+    cat=[]
+    for p in PROVIDER_CATALOG:
+        cred=p.get('credentials') or ''
+        ready=True if not cred else bool(configured.get(p['id'],False))
+        cat.append({**p,'ready':ready})
+    return cat
+
 def provider_status():
-    configured={'youtube':bool(secret('YOUTUBE_API_KEY')),'vimeo':bool(secret('VIMEO_ACCESS_TOKEN')),'dailymotion':bool(secret('DAILYMOTION_ACCESS_TOKEN')),'peertube':True}
+    configured={'youtube':bool(secret('YOUTUBE_API_KEY')),'vimeo':bool(secret('VIMEO_ACCESS_TOKEN')),'dailymotion':True,'peertube':True}
     with db() as con:entries=con.execute('SELECT COUNT(*) FROM cache').fetchone()[0]
-    return {'version':'2.0.0','firstRun':not VAULT.exists() and not any(configured[k] for k in ('youtube','vimeo','dailymotion')),'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
+    return {'version':VERSION,'firstRun':not VAULT.exists() and not configured['youtube'] and not configured['vimeo'],'storage':{'database':'Ready','savedItems':len(saved_state()['items'])},'cache':{'entries':entries,'ttlSeconds':TTL,'persistent':True},'providers':{k:{'ready':v} for k,v in configured.items()}}
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self,path):
         rel=urlparse(path).path.lstrip('/') or 'index.html';candidate=(ROOT/rel).resolve();return str(candidate if str(candidate).startswith(str(ROOT)) else ROOT/'index.html')
@@ -191,9 +272,12 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         u=urlparse(self.path);p=parse_qs(u.query)
         if u.path=='/api/health':return self.send_json(provider_status())
+        if u.path=='/api/providers':
+            configured={'youtube':bool(secret('YOUTUBE_API_KEY')),'vimeo':bool(secret('VIMEO_ACCESS_TOKEN')),'dailymotion':True,'peertube':True}
+            return self.send_json({'version':VERSION,'providers':provider_catalog(configured)})
         if u.path=='/api/state':return self.send_json(saved_state())
         if u.path=='/api/diagnostics':return self.send_json(diagnostics())
-        if u.path=='/api/backup':return self.send_json({'app':'OpenMedia Lite','version':'2.0.0','exportedAt':datetime.now(timezone.utc).isoformat(),'state':saved_state()})
+        if u.path=='/api/backup':return self.send_json({'app':'OpenMedia Lite','version':VERSION,'exportedAt':datetime.now(timezone.utc).isoformat(),'state':saved_state()})
         if u.path=='/api/search':
             try:
                 data,hit=cached('search:'+u.query,lambda:search(p));return self.send_json({**data,'cacheHit':hit})
@@ -228,6 +312,6 @@ class Handler(SimpleHTTPRequestHandler):
         return self.send_json({'error':'Not found'},404)
     def log_message(self,fmt,*args):print('[OpenMedia]',fmt%args)
 if __name__=='__main__':
-    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v2.0.0 running at http://{HOST}:{PORT}')
+    init_db();os.chdir(ROOT);print(f'OpenMedia Lite v3.0.0 running at http://{HOST}:{PORT}')
     try:ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
     except KeyboardInterrupt:pass
